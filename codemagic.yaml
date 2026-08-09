@@ -1,0 +1,63 @@
+workflows:
+  architect-android:
+    name: Architect - Android APK
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+    scripts:
+      - name: تولید ساختار پروژه اندروید (چون این ریپو بدون android/ ارسال شده)
+        script: |
+          set -e
+          if [ ! -d "android" ]; then
+            flutter create --platforms=android --org com.farzan .
+          fi
+
+      - name: جایگزینی فایل‌های gradle آماده‌شده با پشتیبانی Firebase
+        script: |
+          set -e
+          cp -f ci/android_build.gradle android/build.gradle
+          cp -f ci/android_app_build.gradle android/app/build.gradle
+
+      - name: جایگزینی AndroidManifest.xml (مجوزها و گیرنده‌های نوتیفیکیشن/اسکرین‌تایم)
+        script: |
+          set -e
+          cp -f ci/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+
+      - name: قرار دادن google-services.json (مستقیماً از ریپو)
+        script: |
+          set -e
+          if [ ! -f "firebase/google-services.json" ]; then
+            echo "❌ خطا: فایل firebase/google-services.json در ریپو پیدا نشد."
+            echo "   این فایل را از Firebase Console دانلود و دقیقاً در همین مسیر قرار بده."
+            exit 1
+          fi
+          if grep -q "_COMMENT" "firebase/google-services.json"; then
+            echo "❌ خطا: firebase/google-services.json هنوز همان فایل نمونه است، نه فایل واقعی."
+            exit 1
+          fi
+          mkdir -p android/app
+          cp -f firebase/google-services.json android/app/google-services.json
+
+          GRADLE_APP_ID=$(grep -m1 'applicationId' android/app/build.gradle | sed -E 's/.*applicationId[[:space:]]+"([^"]+)".*/\1/')
+          JSON_PACKAGE=$(grep -m1 'package_name' android/app/google-services.json | sed -E 's/.*"package_name":[[:space:]]*"([^"]+)".*/\1/')
+
+          if [ "$GRADLE_APP_ID" != "$JSON_PACKAGE" ]; then
+            echo "❌ خطا: عدم تطابق نام پکیج!"
+            echo "   applicationId: $GRADLE_APP_ID  |  package_name: $JSON_PACKAGE"
+            exit 1
+          fi
+          echo "✅ google-services.json با applicationId=$GRADLE_APP_ID جایگزین شد."
+
+      - name: نصب پکیج‌ها
+        script: flutter pub get
+
+      - name: بیلد APK ریلیز
+        script: flutter build apk --release
+
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+
+    publishing:
+      email:
+        recipients: []
