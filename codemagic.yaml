@@ -58,6 +58,4 @@ workflows:
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
 
-    publishing:
-      email:
-        recipients: []
+    
