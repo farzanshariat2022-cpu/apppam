@@ -4,8 +4,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
-
+  sdk: '>=3.4.0 <4.0.0'
 dependencies:
   flutter:
     sdk: flutter
@@ -33,7 +32,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # --- Screen Time (Android UsageStatsManager) ---
-  usage_stats: ^1.3.0
+  usage_stats: ^2.0.1
 
 dev_dependencies:
   flutter_test:
