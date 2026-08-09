@@ -19,12 +19,19 @@ class NotificationService {
     tz_data.initializeTimeZones();
     tz.setLocalLocation(tz.local);
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidSettings);
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+    );
+
     await _plugin.initialize(initSettings);
 
     final androidPlugin = _plugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
     await androidPlugin?.requestNotificationsPermission();
 
     await _scheduleDailyNotifications();
@@ -36,16 +43,16 @@ class NotificationService {
       id: morningNotificationId,
       hour: 7,
       minute: 0,
-      title: 'صبح بخیر ☀️',
-      body: 'گزارش دیروز و برنامه امروزت آماده‌ست — اپ رو باز کن ببین.',
+      title: 'صبح بخیر سرورم ☀️',
+      body: 'گزارش دیروز و برنامه امروزتون آماده‌ست سرورم.',
     );
 
     await _scheduleDaily(
       id: eveningNotificationId,
       hour: 22,
       minute: 0,
-      title: 'وقت جمع‌بندی امروزه 🌙',
-      body: 'ژورنالت رو بنویس و ساعت خوابت رو ثبت کن.',
+      title: 'وقت جمع‌بندی امروزه سرورم 🌙',
+      body: 'ژورنالت رو بنویس و ساعت خوابت رو ثبت کن سرورم.',
     );
   }
 
@@ -57,7 +64,16 @@ class NotificationService {
     required String body,
   }) async {
     final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+
+    var scheduled = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
@@ -77,6 +93,8 @@ class NotificationService {
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
     );
   }
@@ -86,10 +104,16 @@ class NotificationService {
     required String taskTitle,
     required DateTime scheduledTime,
   }) async {
-    final reminderTime = scheduledTime.subtract(const Duration(minutes: 5));
+    final reminderTime = scheduledTime.subtract(
+      const Duration(minutes: 5),
+    );
+
     if (reminderTime.isBefore(DateTime.now())) return;
 
-    final tzTime = tz.TZDateTime.from(reminderTime, tz.local);
+    final tzTime = tz.TZDateTime.from(
+      reminderTime,
+      tz.local,
+    );
 
     await _plugin.zonedSchedule(
       _idFromTaskId(taskId),
@@ -100,12 +124,15 @@ class NotificationService {
         android: AndroidNotificationDetails(
           'architect_task_reminders',
           'یادآور تسک‌ها',
-          channelDescription: 'یادآوری ۵ دقیقه قبل از تسک‌های زمان‌بندی‌شده',
+          channelDescription:
+              'یادآوری ۵ دقیقه قبل از تسک‌های زمان‌بندی‌شده',
           importance: Importance.high,
           priority: Priority.high,
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
@@ -113,5 +140,6 @@ class NotificationService {
     await _plugin.cancel(_idFromTaskId(taskId));
   }
 
-  int _idFromTaskId(String taskId) => (taskId.hashCode & 0x7FFFFFFF) % 100000 + 2000;
+  int _idFromTaskId(String taskId) =>
+      (taskId.hashCode & 0x7FFFFFFF) % 100000 + 2000;
 }
