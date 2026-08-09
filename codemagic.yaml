@@ -1,115 +1,116 @@
 workflows:
-architect-android:
-name: Architect - Android APK
-max_build_duration: 30
-instance_type: mac_mini_m2
+  architect-android:
+    name: Architect - Android APK
+    max_build_duration: 30
+    instance_type: mac_mini_m2
 
-environment:
-  flutter: stable
+    environment:
+      flutter: stable
 
-scripts:
+    scripts:
+      - name: تولید ساختار پروژه اندروید
+        script: |
+          set -e
 
-  - name: تولید ساختار پروژه اندروید
-    script: |
-      set -e
+          rm -rf android
 
-      rm -rf android
+          flutter create --platforms=android --org com.farzan .
 
-      flutter create --platforms=android --org com.farzan .
+          echo "=== Checking MainActivity ==="
+          find android -name MainActivity.kt -print
 
-      echo "=== Checking MainActivity ==="
-      find android -name MainActivity.kt -print
+      - name: اصلاح MainActivity برای package صحیح
+        script: |
+          set -e
 
-  - name: اصلاح MainActivity برای package صحیح
-    script: |
-      set -e
+          MAIN_ACTIVITY=$(find android -name MainActivity.kt | head -n 1)
 
-      MAIN_ACTIVITY=$(find android -name MainActivity.kt | head -n 1)
+          if [ -z "$MAIN_ACTIVITY" ]; then
+            echo "❌ MainActivity.kt پیدا نشد!"
+            exit 1
+          fi
 
-      if [ -z "$MAIN_ACTIVITY" ]; then
-        echo "❌ MainActivity.kt پیدا نشد!"
-        exit 1
-      fi
+          echo "MainActivity found at:"
+          echo "$MAIN_ACTIVITY"
 
-      echo "MainActivity found at:"
-      echo "$MAIN_ACTIVITY"
+          mkdir -p android/app/src/main/kotlin/com/farzan/architect
 
-      mkdir -p android/app/src/main/kotlin/com/farzan/architect
+          cat > android/app/src/main/kotlin/com/farzan/architect/MainActivity.kt <<'EOF'
+          package com.farzan.architect
 
-      cat > android/app/src/main/kotlin/com/farzan/architect/MainActivity.kt <<'EOF'
-      package com.farzan.architect
+          import io.flutter.embedding.android.FlutterActivity
 
-      import io.flutter.embedding.android.FlutterActivity
+          class MainActivity: FlutterActivity()
+          EOF
 
-      class MainActivity: FlutterActivity()
-      EOF
+          echo "=== Final MainActivity ==="
+          cat android/app/src/main/kotlin/com/farzan/architect/MainActivity.kt
 
-      echo "=== Final MainActivity ==="
-      cat android/app/src/main/kotlin/com/farzan/architect/MainActivity.kt
+      - name: جایگزینی فایل‌های gradle آماده‌شده با پشتیبانی Firebase
+        script: |
+          set -e
 
-  - name: جایگزینی فایل‌های gradle آماده‌شده با پشتیبانی Firebase
-    script: |
-      set -e
+          cp -f ci/android_build.gradle android/build.gradle
+          cp -f ci/android_app_build.gradle android/app/build.gradle
 
-      cp -f ci/android_build.gradle android/build.gradle
-      cp -f ci/android_app_build.gradle android/app/build.gradle
+      - name: جایگزینی AndroidManifest.xml
+        script: |
+          set -e
 
-  - name: جایگزینی AndroidManifest.xml
-    script: |
-      set -e
+          cp -f ci/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
 
-      cp -f ci/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+      - name: قرار دادن google-services.json
+        script: |
+          set -e
 
-  - name: قرار دادن google-services.json
-    script: |
-      set -e
+          if [ ! -f "firebase/google-services.json" ]; then
+            echo "❌ خطا: فایل firebase/google-services.json در ریپو پیدا نشد."
+            exit 1
+          fi
 
-      if [ ! -f "firebase/google-services.json" ]; then
-        echo "❌ خطا: فایل firebase/google-services.json در ریپو پیدا نشد."
-        exit 1
-      fi
+          if grep -q "_COMMENT" "firebase/google-services.json"; then
+            echo "❌ خطا: firebase/google-services.json فایل نمونه است."
+            exit 1
+          fi
 
-      if grep -q "_COMMENT" "firebase/google-services.json"; then
-        echo "❌ خطا: firebase/google-services.json فایل نمونه است."
-        exit 1
-      fi
+          mkdir -p android/app
 
-      mkdir -p android/app
+          cp -f firebase/google-services.json android/app/google-services.json
 
-      cp -f firebase/google-services.json android/app/google-services.json
+          GRADLE_APP_ID=$(grep -m1 'applicationId' android/app/build.gradle | sed -E 's/.*applicationId[[:space:]]+"([^"]+)".*/\1/')
 
-      GRADLE_APP_ID=$(grep -m1 'applicationId' android/app/build.gradle | sed -E 's/.*applicationId[[:space:]]+"([^"]+)".*/\1/')
+          JSON_PACKAGE=$(grep -m1 'package_name' android/app/google-services.json | sed -E 's/.*"package_name":[[:space:]]*"([^"]+)".*/\1/')
 
-      JSON_PACKAGE=$(grep -m1 'package_name' android/app/google-services.json | sed -E 's/.*"package_name":[[:space:]]*"([^"]+)".*/\1/')
+          echo "Gradle applicationId: $GRADLE_APP_ID"
+          echo "Firebase package_name: $JSON_PACKAGE"
 
-      echo "Gradle applicationId: $GRADLE_APP_ID"
-      echo "Firebase package_name: $JSON_PACKAGE"
+          if [ "$GRADLE_APP_ID" != "$JSON_PACKAGE" ]; then
+            echo "❌ خطا: applicationId و package_name یکسان نیستند."
+            exit 1
+          fi
 
-      if [ "$GRADLE_APP_ID" != "$JSON_PACKAGE" ]; then
-        echo "❌ خطا: applicationId و package_name یکسان نیستند."
-        exit 1
-      fi
+          echo "✅ google-services.json صحیح است."
 
-      echo "✅ google-services.json صحیح است."
+      - name: بررسی نهایی MainActivity
+        script: |
+          set -e
 
-  - name: بررسی نهایی MainActivity
-    script: |
-      set -e
+          test -f android/app/src/main/kotlin/com/farzan/architect/MainActivity.kt
 
-      test -f android/app/src/main/kotlin/com/farzan/architect/MainActivity.kt
+          grep -q "package com.farzan.architect" \
+            android/app/src/main/kotlin/com/farzan/architect/MainActivity.kt
 
-      grep -q "package com.farzan.architect" \
-        android/app/src/main/kotlin/com/farzan/architect/MainActivity.kt
+          echo "✅ MainActivity صحیح است."
 
-      echo "✅ MainActivity صحیح است."
+      - name: نصب پکیج‌ها
+        script: |
+          flutter pub get
 
-  - name: نصب پکیج‌ها
-    script: |
-      flutter pub get
+      - name: بیلد APK ریلیز
+        script: |
+          flutter build apk --release
 
-  - name: بیلد APK ریلیز
-    script: |
-      flutter build apk --release
-
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
 artifacts:
   - build/app/outputs/flutter-apk/*.apk
